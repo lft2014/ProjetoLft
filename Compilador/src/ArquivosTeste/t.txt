@@ -1,0 +1,4 @@
+programa helloWord
+inicio
+		escreva('Ola Mundo')
+fim.

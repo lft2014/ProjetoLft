@@ -1,0 +1,330 @@
+Package Portugol;
+
+Helpers
+  underscore = '_' ;    
+  ascii_char = [32 .. 127] ;
+  tudo = [0 .. 0xffff];
+
+  // letras e digitos
+  letra = [['a' .. 'z'] + ['A' .. 'Z']];
+  digito = ['0' .. '9'] ;
+	
+inicio_comentario = '/*' ;
+fim_comentario = '*/' ;
+  
+  tab = 9 ;
+  cr = 13 ;
+  lf = 10 ;
+  blank = ' ' ;
+  eol = cr lf | cr | lf;
+
+States
+  normal,
+  comment;
+
+Tokens
+  //palavras reservadas
+{normal} fim = 'fim.' ;
+{normal} var = 'var' ;
+{normal} inicio = 'inicio' ;
+{normal} programa = 'programa' ;
+{normal} leia = 'leia' ;
+{normal} escreva = 'escreva' ;
+{normal} const = 'const' ;
+
+  //tipos
+{normal} inteiro = 'inteiro' ;
+{normal} real = 'real' ;
+{normal} caractere = 'caractere' ; 
+{normal} string = '''[tudo-''']*''' ;
+{normal} n_int = digito+;
+{normal} n_real = digito+'.'digito+;
+ 
+  //condicoes
+{normal} se = 'se' ;
+{normal} fim_se = 'fim se' ;
+{normal} entao = 'entao' ;
+{normal} senao = 'senao' ;
+{normal} avalie = 'avalie' ;
+{normal} fim_avalie = 'fim avalie' ;
+{normal} caso = 'caso' ;
+  
+  //loop
+{normal} enquanto = 'enquanto' ;
+{normal} faca = 'faca';
+{normal} fim_enquanto = 'fim enquanto' ;
+{normal} repita = 'repita' ;
+{normal} ate = 'ate' ;
+{normal} para = 'para' ;
+{normal} fim_para = 'fim para' ;
+{normal} de = 'de' ;
+{normal} passo = 'passo' ;
+
+  // simbolos aritmeticos
+{normal} mais = '+' ;
+{normal} menos = '-' ;
+{normal} mult = '*' ;
+{normal} div = '/' ;
+{normal} atribuicao = '<-' ;
+
+    
+  // simbolos separadores
+{normal} virgula = ',' ;
+{normal} doispontos= ':' ;
+{normal} pontoevirgula = ';' ;
+{normal} esq_paren = '(' ;
+{normal} dir_paren = ')' ;
+{normal} aspa_d = '"' ;
+{normal} aspa_s = ''';
+{normal} esq_colchete = '[' ;
+{normal} dir_colchete = ']' ;
+
+  //simbolos logicos    
+{normal} igual = '=' ;
+{normal} maior ='>' ;
+{normal} menor = '<';
+{normal} maiorigual = '>=';
+{normal} menorigual = '<=';
+{normal} diferente = '<>';
+{normal} e = 'e';
+{normal} ou = 'ou';
+{normal} xor = 'xor';
+{normal} nao = 'nao';
+
+  // identificador
+{normal} identificador = underscore(letra | digito | underscore)* | letra (letra | digito | underscore)* ;
+  
+  // blanks 
+{normal} blanks = blank | cr lf | cr | lf | tab ;
+ 
+  // numeros
+{normal} numero = digito+ ; 
+
+  // comentario aninhado
+{normal->comment, comment}
+          comment = inicio_comentario;
+
+{normal}  comment_error = fim_comentario;
+{comment} comment_end = fim_comentario;
+{comment} comment_body = [tudo -['*' + '/']]*;
+{comment} star = '*';
+{comment} slash = '/';
+
+  //comentario simples
+{normal} comentario_simples= '//'( [tudo -[cr + lf]]*) eol;
+
+Ignored Tokens
+  comentario_simples,
+  comment, 
+  blanks ;
+
+Productions
+  //estrutura de um programa em portugol: cabe?alho, inicio, declara??es, conj. de comandos e fim'.' .
+ 
+ 
+programa{->ast_programa} =
+    T.programa identificador 
+     inicio
+      	declaracoes
+		    conj_comandos
+    fim {-> New ast_programa(identificador, [declaracoes.ast_declaracoes], [conj_comandos])};
+
+
+
+	// uma declaracao pode ser de variavel ou de uma constante ou nada
+   declaracoes{->ast_declaracoes} = {dcl}declaracoes declaracao_conj {->New ast_declaracoes.dcl([declaracao_conj.ast_declconj])} |
+   {vazio}{->New ast_declaracoes.vazio()};
+
+
+
+  //declara?ao estrutura: variavel(simples/unica ou de um conjunto de variaveis separadas por virgula) ou constante
+   declaracao_conj{->ast_declconj} =  {multiplas}tipo doispontos declaracao_var_lista var_def pontoevirgula {->New ast_declconj.multiplas(tipo.ast_tipo, declaracao_var_lista.ast_dcl_var_lista, var_def.ast_var_def)}|
+		                 {simples}tipo doispontos var_def pontoevirgula{->New ast_declconj.simples(tipo.ast_tipo, var_def.ast_var_def )} |
+		                 {const}const identificador valor pontoevirgula {->New ast_declconj.const(identificador, valor.ast_valor)} ;
+			 
+   //estrutura de declara??o de variaveis separadas por virgula(virgula)                 
+  declaracao_var_lista{-> ast_dcl_var_lista} = {multiplas}declaracao_var_lista var_def virgula{-> New ast_dcl_var_lista.multiplas(declaracao_var_lista.ast_dcl_var_lista, var_def.ast_var_def) }|
+		                  {simples} var_def virgula {->New ast_dcl_var_lista.simples(var_def.ast_var_def) } ;
+
+   //estrutura de uma variavel
+   var_def{->ast_var_def} ={id} identificador {->New ast_var_def.id(identificador)}|
+   {vetor}identificador esq_colchete n_int dir_colchete{-> New ast_var_def.vetor(identificador,esq_colchete,n_int,dir_colchete) } ;
+
+   //estrutura de um tipo
+   tipo{->ast_tipo} = {int}inteiro{->New ast_tipo.int(inteiro)} |{real} real{->New ast_tipo.real(real)} | {c}caractere {->New ast_tipo.c(caractere)} ; 
+   
+   //estrutura de valor
+   valor{->ast_valor} = {int}n_int {->New ast_valor.int(n_int)}|
+                        {nreal} n_real {->New ast_valor.nreal(n_real)}|
+                        {str}string {->New ast_valor.str(string)} ;
+
+
+
+   //gramatica de expressoes
+
+   exp_geral{->exp_geral}= {exparitmetica}exp {-> New exp_geral.exparitmetica(exp)} |
+   			  {exp_l }exp_logica{-> New exp_geral.exp_l(exp_logica)};
+   
+   exp{->P.exp} = {mais}exp mais termo {->New exp.mais(exp, termo.exp)} |
+         {menos}exp menos termo {->New exp.menos(exp, termo.exp)} |
+               termo{->termo.exp} ;
+
+   termo{->P.exp} = {multiplicacao}termo mult fator{->New exp.multiplicacao(termo.exp, fator.exp)} |
+          {divisao} termo div fator{->New exp.divisao(termo.exp, fator.exp)}|
+           fator{->fator.exp} ;
+   
+   fator{->P.exp} = {numeroint}n_int{->New exp.numeroint(n_int)}| 
+          {id}identificador{->New exp.id(identificador)} |   
+          {expp}esq_paren exp dir_paren{->exp}|
+          {str}string {->New exp.str(string)};
+          
+                             
+   exp_logica {->P.exp_logica} = {nlog} nao exp_logica {->New exp_logica.nlog(nao, exp_logica)}|
+ 								  {oubin} expl_ou{-> expl_ou.exp_logica};
+ 	
+   expl_ou {->P.exp_logica} = {oubin}expl_ou ou exp_logica_termo{->New exp_logica.oubin(expl_ou.exp_logica, exp_logica_termo.exp_logica)} |
+                {xorbin}expl_ou xor exp_logica_termo{->New exp_logica.xorbin(expl_ou.exp_logica, exp_logica_termo.exp_logica)}|
+                {termbin}exp_logica_termo{->exp_logica_termo.exp_logica};
+   
+   exp_logica_termo{->P.exp_logica} = {ebin}exp_logica_termo e expl_igualdade {->New exp_logica.ebin(exp_logica_termo.exp_logica, expl_igualdade.exp_logica)}|
+   									{igualdade} expl_igualdade {->expl_igualdade.exp_logica};
+
+   expl_igualdade{->P.exp_logica} = {igual}[esquerda]:exp igual [direita]:exp{-> New exp_logica.igual(esquerda.exp, direita.exp)} |
+                    {dif}[esquerda]:exp diferente [direita]:exp {-> New exp_logica.diferente(esquerda.exp, direita.exp)}| 
+                    {relacional}exp_logica_relacional {->exp_logica_relacional.exp_logica};
+   
+
+  exp_logica_relacional{->P.exp_logica}= {menor_igual}[esquerda]:exp menorigual [direita]:exp {->New exp_logica.menor_igual(esquerda.exp, direita.exp)}|
+                          {maior_igual}[esquerda]:exp maiorigual [direita]:exp {->New exp_logica.maior_igual(esquerda.exp, direita.exp)} |
+                          {maior}[esquerda]:exp maior [direita]:exp{->New exp_logica.maior(esquerda.exp, direita.exp)}|
+                          {menor}[esquerda]:exp menor [direita]:exp{->New exp_logica.menor(esquerda.exp, direita.exp)}|
+                          {expnl}expl_paren{->expl_paren.exp_logica};
+  			                        
+   expl_paren{->P.exp_logica}= {exp_paren} esq_paren exp_logica  dir_paren{->exp_logica};
+
+
+   //Gramatica de comandos e auxiliares
+   conj_comandos{->P.conj_comandos} = {leia}conj_comandos comando_leia{->New conj_comandos.leia([conj_comandos],comando_leia.ast_leia)}|
+                     {escreva}conj_comandos comando_escreva {->New conj_comandos.escreva([conj_comandos],comando_escreva.ast_escreva)}|
+                     {atribuicao}conj_comandos comando_atribuicao{->New conj_comandos.atribuicao([conj_comandos],comando_atribuicao.ast_atribuicao)}|
+                     {condicional}conj_comandos comando_se{->New conj_comandos.condicional([conj_comandos],comando_se.ast_comando_se)}|
+                     {enquanto} conj_comandos comando_enquanto{->New conj_comandos.enquanto([conj_comandos],comando_enquanto.ast_comando_enquanto)}|
+                     {repita} conj_comandos comando_repita{->New conj_comandos.repita([conj_comandos],comando_repita.ast_comando_repita)}|
+                     {faca} conj_comandos comando_para{->New conj_comandos.faca([conj_comandos],comando_para.ast_comando_para)}|
+                     {faca_passo} conj_comandos comando_para_passo{->New conj_comandos.faca_passo([conj_comandos],comando_para_passo.ast_para_passo)}|
+                     {avalie}conj_comandos comando_avalie{->New conj_comandos.avalie([conj_comandos],comando_avalie.ast_avalie)}|
+                     {vazio}{->New conj_comandos.vazio()} ;
+				   
+				   
+
+  comando_leia{->ast_leia} =  {simples}leia esq_paren var_def dir_paren pontoevirgula{->New ast_leia.simples(var_def.ast_var_def)}
+  |{composta}leia esq_paren varvirgula dir_paren pontoevirgula{->New ast_leia.composta(varvirgula.ast_varvirgula)}; 
+
+  varvirgula{->ast_varvirgula} = {simples}var_def virgula {->New ast_varvirgula.simples(var_def.ast_var_def, virgula)}|
+  {composta}var_def virgula varvirgula{->New ast_varvirgula.composta(var_def.ast_var_def, virgula, varvirgula.ast_varvirgula)};
+
+
+  comando_escreva{->ast_escreva} = {simples}escreva esq_paren exp_geral dir_paren pontoevirgula{->New ast_escreva.simples(exp_geral)}|
+  {composta}escreva esq_paren expvirgula dir_paren pontoevirgula{->New ast_escreva.composta(expvirgula.ast_expvirgula)} ;
+
+  expvirgula{->ast_expvirgula} = {simples}exp_geral virgula{->New ast_expvirgula.simples(exp_geral,virgula)} 
+  |{composta} [esq]:exp_geral virgula [dir]:expvirgula{-> New ast_expvirgula.composta(esq.exp_geral,virgula,dir.ast_expvirgula)};
+  
+  comando_atribuicao{->ast_atribuicao} = var_def atribuicao exp_geral pontoevirgula{-> New ast_atribuicao(var_def.ast_var_def,exp_geral) }; 
+  
+  comando_se{->ast_comando_se} =  {simples} se esq_paren exp_logica dir_paren entao conj_comandos fim_se pontoevirgula{->New ast_comando_se.simples(exp_logica,[conj_comandos])}|
+								  {completo} se esq_paren exp_logica dir_paren entao conj_comandos senao d_senao fim_se pontoevirgula{->New ast_comando_se.completo(exp_logica,[conj_comandos])};
+                 
+  
+  d_senao = conj_comandos; 
+
+  comando_enquanto{->ast_comando_enquanto} ={enquanto} enquanto esq_paren exp_logica dir_paren faca conj_comandos fim_enquanto pontoevirgula{->New ast_comando_enquanto.enquanto(exp_logica,[conj_comandos])};
+  
+  comando_repita{->ast_comando_repita} ={repita} repita conj_comandos ate esq_paren exp_logica dir_paren pontoevirgula{->New ast_comando_repita.repita([conj_comandos],exp_logica)};
+  
+  comando_para{->ast_comando_para} = {para}para var_def de n_int ate complemento_para faca conj_comandos fim_para pontoevirgula{->New ast_comando_para.para(var_def.ast_var_def,n_int,complemento_para.ast_complemento1,[conj_comandos])};
+  
+  //foi necessario dividir a declaraçao do n_int por que jah existia um em comando para   
+  complemento_para{->ast_complemento1} = n_int{->New ast_complemento1(n_int)};
+  
+  comando_para_passo{->ast_para_passo} = para var_def de n_int passo complemento_para2 ate complemento_para faca conj_comandos fim_para pontoevirgula{->New ast_para_passo(var_def.ast_var_def, n_int,complemento_para2.ast_complemento2,[conj_comandos]) };
+  
+  complemento_para2{->ast_complemento2} = n_int{->New ast_complemento2(n_int)};
+
+  comando_avalie {->ast_avalie} =  avalie esq_paren exp_geral dir_paren comando_caso+ senao_avalie fim_avalie pontoevirgula
+  {->New ast_avalie(exp_geral,[comando_caso.ast_caso],senao_avalie.ast_senao_avalie)};
+  
+  comando_caso{->ast_caso} = caso valor doispontos conj_comandos{->New ast_caso(valor.ast_valor,[conj_comandos])};
+  
+  senao_avalie{->ast_senao_avalie} = {senao}senao doispontos conj_comandos{->New ast_senao_avalie.senao([conj_comandos])} 
+                                    | {vazio} {->New ast_senao_avalie.vazio() };
+
+Abstract Syntax Tree
+
+ast_programa = identificador ast_declaracoes* conj_comandos*;
+
+ast_declaracoes = {dcl}ast_declconj*|{vazio};
+
+ast_declconj = {multiplas} ast_tipo ast_dcl_var_lista ast_var_def 
+              |{simples}ast_tipo ast_var_def  | {const}identificador ast_valor ;
+
+ast_var_def = {id}identificador |{vetor} identificador esq_colchete n_int dir_colchete;
+
+ast_dcl_var_lista = {multiplas}ast_dcl_var_lista ast_var_def|{simples} ast_var_def;
+
+ast_tipo = {int}inteiro|{real} real| {c}caractere; 
+
+ast_valor = {int}n_int|{nreal} n_real | {str}string;
+
+exp_geral= {exparitmetica} exp  |
+   			{exp_l }exp_logica;
+   
+
+
+exp =     {mais}            [esq]:exp   [dir]:exp|
+          {menos}           [esq]:exp [dir]:exp|
+          {multiplicacao}   [esq]:exp [dir]:exp|
+          {divisao}         [esq]:exp  [dir]:exp|
+          {numeroint} n_int|
+          {id}identificador |   
+          {exp}exp |
+          {str}string;
+   
+exp_logica = {nlog} nao exp_logica|
+			       {oubin} [esq]:exp_logica [dir]:exp_logica|
+             {xorbin}[esq]:exp_logica [dir]:exp_logica|
+             {ebin}[esq]:exp_logica   [dir]:exp_logica|
+             {igual} [esq]:exp  [dir]:exp|
+             {diferente}[esq]:exp  [dir]:exp|
+             {maior} [esq]:exp  [dir]:exp|
+             {maior_igual}[esq]:exp  [dir]:exp|
+             {menor}[esq]:exp  [dir]:exp|
+             {menor_igual} [esq]:exp  [dir]:exp;
+			 
+conj_comandos=  {leia}conj_comandos* ast_leia|
+			          {escreva}conj_comandos* ast_escreva|
+                {atribuicao}conj_comandos* ast_atribuicao|
+                {condicional}conj_comandos* ast_comando_se|
+                {enquanto} conj_comandos* ast_comando_enquanto|
+                {repita}conj_comandos* ast_comando_repita|
+                {faca} conj_comandos* ast_comando_para|
+                {faca_passo} conj_comandos* ast_para_passo|
+                {avalie}conj_comandos* ast_avalie|
+                {vazio};
+			  
+ast_leia= {simples} ast_var_def |{composta} ast_varvirgula;
+ast_atribuicao = ast_var_def exp_geral;
+ast_escreva = {simples}exp_geral |{composta}ast_expvirgula;
+ast_comando_se =  {simples}exp_logica conj_comandos*|
+				          {completo}exp_logica conj_comandos*;
+ast_comando_enquanto = {enquanto} exp_logica conj_comandos*; 
+ast_comando_repita = {repita} conj_comandos* exp_logica;
+ast_comando_para = {para}ast_var_def n_int ast_complemento1 conj_comandos*;
+ast_complemento1 = n_int ;
+ast_para_passo = ast_var_def n_int ast_complemento2 conj_comandos*;
+ast_complemento2 = n_int;
+ast_avalie = exp_geral ast_caso* ast_senao_avalie ;
+ast_caso= ast_valor conj_comandos*;
+ast_senao_avalie= {senao} conj_comandos*| {vazio};
+ast_varvirgula ={simples}ast_var_def virgula| {composta} ast_var_def virgula ast_varvirgula;
+ast_expvirgula ={simples}exp_geral virgula  |{composta}exp_geral virgula ast_expvirgula;
