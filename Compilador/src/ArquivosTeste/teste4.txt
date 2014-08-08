@@ -1,0 +1,14 @@
+programa teste4 /* testando comentario */
+inicio
+	inteiro:a,b,c;
+	inteiro:d,f;
+	const DOIS 2;
+	caractere: c;
+	const PI 3;
+ // testando comentario
+	a <- 2;
+	escreva('Olá Mundo!');
+	enquanto (1 < 2) faca
+		escreva('Um menor que 2');
+	fim enquanto;
+fim.

@@ -1,0 +1,12 @@
+programa helloWord
+inicio	
+	inteiro: a;
+	inteiro: b;
+	a<-1;
+	b<-1;
+	
+	enquanto (a+b <>3) faca 
+		escreva('Ola Mundo');	
+	fim enquanto; 
+fim.
+		

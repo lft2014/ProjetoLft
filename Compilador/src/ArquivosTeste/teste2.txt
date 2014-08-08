@@ -1,0 +1,24 @@
+programa teste2
+inicio
+//comentario
+se ((A<g) ou (b>c)) entao fim se;
+
+/*
+comentario
+*/
+
+se ((b=j) xor (a<d)) entao fim se;
+
+
+/*
+/*
+comentario
+*/*/
+se ((a=b) e (c=f)) entao fim se;
+
+
+
+se (d>c xor b<d) entao fim se;
+
+
+fim.

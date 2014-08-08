@@ -1,0 +1,15 @@
+programa teste
+inicio
+inteiro : numero;
+numero <- 2;
+escreva(numero);
+repita
+enquanto (numero = 5) faca
+se(numero + 2 = 3) entao
+escreva(numero);
+senao
+escreva(numero);
+fim se;
+fim enquanto
+ate(numero<>2  );
+fim.
